@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LINN 專業抽獎系統</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Ｉcons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans TC', sans-serif; }
+        .slot-reel {
+            transition: transform 0.1s linear;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
+
+    <!-- 頂部導覽列 -->
+    <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-gradient-to-tr from-amber-500 to-rose-500 text-white p-2 rounded-xl shadow-lg">
+                    <i class="fa-solid fa-gift text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold bg-gradient-to-r from-amber-400 to-rose-400 bg-clip-text text-transparent">LINN 抽獎系統</h1>
+                    <p class="text-xs text-slate-400">開發者：LINN | 雙重檢視即時同步</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <span id="userStatusBadge" class="px-3 py-1 bg-slate-700 text-slate-300 rounded-full text-xs font-medium">
+                    <i class="fa-solid fa-eye mr-1"></i> 訪客模式
+                </span>
+                <button id="navToggleBtn" onclick="toggleAuthModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-semibold transition shadow-md flex items-center">
+                    <i class="fa-solid fa-right-to-bracket mr-2"></i> 管理員登入
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主要內容區 -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
+        
+        <!-- 左側面板：即時公告與狀態 (1欄) -->
+        <div class="lg:col-span-1 space-y-6">
+            <!-- 公告欄 -->
+            <div class="bg-slate-800 rounded-2xl p-5 border border-slate-700 shadow-xl">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-base font-bold flex items-center text-amber-400">
+                        <i class="fa-solid fa-bullhorn mr-2"></i> 即時公告欄
+                    </h2>
+                    <span id="announcementBadge" class="hidden text-xs bg-rose-500 text-white px-2 py-0.5 rounded-full">管理員模式</span>
+                </div>
+                <div id="announcementContainer" class="space-y-3 max-h-60 overflow-y-auto pr-1">
+                    <!-- 动态载入公告 -->
+                </div>
+                <div id="adminAnnouncementControl" class="hidden mt-4 pt-3 border-t border-slate-700">
+                    <button onclick="openAnnouncementModal()" class="w-full py-2 bg-slate-700 hover:bg-slate-600 text-amber-300 rounded-lg text-xs font-semibold transition border border-dashed border-amber-500/50">
+                        <i class="fa-solid fa-plus mr-1"></i> 新增 / 編輯公告
+                    </button>
+                </div>
+            </div>
+
+            <!-- 系統狀態摘要 -->
+            <div class="bg-slate-800 rounded-2xl p-5 border border-slate-700 shadow-xl">
+                <h3 class="text-base font-bold mb-3 flex items-center text-indigo-400">
+                    <i class="fa-solid fa-chart-pie mr-2"></i> 活動數據</h3>
+                <div class="grid grid-cols-2 gap-3 text-center">
+                    <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-700/50">
+                        <div class="text-2xl font-black text-amber-400" id="statParticipants">0</div>
+                        <div class="text-xs text-slate-400 mt-1">參與名單數</div>
+                    </div>
+                    <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-700/50">
+                        <div class="text-2xl font-black text-rose-400" id="statPrizes">0</div>
+                        <div class="text-xs text-slate-400 mt-1">剩餘獎項數</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 中間/右側主操作區 (3欄) -->
+        <div class="lg:col-span-3 space-y-6">
+            
+            <!-- 管理員專用控制台分頁按鈕 (登入後顯示) -->
+            <div id="adminControlPanelNav" class="hidden bg-slate-800/90 backdrop-blur border border-indigo-500/30 rounded-2xl p-3 flex flex-wrap gap-2 shadow-xl items-center justify-between">
+                <div class="flex space-x-2">
+                    <button onclick="switchTab('draw')" id="tabBtn-draw" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold transition shadow">
+                        <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> 抽獎主控台
+                    </button>
+                    <button onclick="switchTab('prizes')" id="tabBtn-prizes" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-sm font-bold transition">
+                        <i class="fa-solid fa-trophy mr-1"></i> 獎項管理
+                    </button>
+                    <button onclick="switchTab('participants')" id="tabBtn-participants" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-sm font-bold transition">
+                        <i class="fa-solid fa-users mr-1"></i> 名單管理
+                    </button>
+                    <button onclick="switchTab('accounts')" id="tabBtn-accounts" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-sm font-bold transition">
+                        <i class="fa-solid fa-user-shield mr-1"></i> 權限管理
+                    </button>
+                </div>
+                <button onclick="logout()" class="px-3 py-2 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white rounded-xl text-xs font-semibold transition border border-rose-500/30">
+                    <i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> 登出後台
+                </button>
+            </div>
+
+            <!-- 分頁內容：1. 抽獎主畫面 / 互動區 -->
+            <div id="section-draw" class="space-y-6">
+                <!-- 抽獎動畫大看板 -->
+                <div class="bg-gradient-to-b from-slate-800 to-slate-850 rounded-3xl p-6 md:p-8 border border-slate-700 shadow-2xl text-center relative overflow-hidden">
+                    <div class="absolute -right-10 -top-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="absolute -left-10 -bottom-10 w-40 h-40 bg-rose-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                    <!-- 當前進行抽獎的獎項提示 -->
+                    <div class="mb-4">
+                        <span id="currentPrizeLabel" class="px-4 py-1.5 bg-amber-500/20 border border-amber-500/40 text-amber-300 rounded-full text-sm font-bold">
+                            請選擇欲抽取的獎項
+                        </span>
+                    </div>
+
+                    <!-- 滾動抽獎視覺框 -->
+                    <div class="h-36 md:h-44 bg-slate-900/90 rounded-2xl border-2 border-slate-700/80 flex items-center justify-center overflow-hidden relative shadow-inner my-4">
+                        <div id="slotMachineText" class="text-3xl md:text-5xl font-black tracking-wider text-slate-300">
+                            READY TO DRAW
+                        </div>
+                        <!-- 光暈遮罩效果 -->
+                        <div class="absolute inset-0 bg-gradient-to-r from-slate-900 via-transparent to-slate-900 pointer-events-none"></div>
+                    </div>
+
+                    <!-- 倒數定時抽獎提示 -->
+                    <div id="timerDisplayContainer" class="hidden mb-4 p-3 bg-indigo-950/40 border border-indigo-500/30 rounded-xl text-indigo-300 text-sm font-medium flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-clock-rotate-left animate-spin"></i>
+                        <span>距離自動開獎還有：<strong id="countdownTimerText" class="text-amber-400">--:--:--</strong></span>
+                    </div>
+
+                    <!-- 管理員抽獎控制 (訪客隱藏) -->
+                    <div id="adminDrawControls" class="hidden mt-6 flex flex-wrap justify-center gap-3">
+                        <select id="drawPrizeSelect" class="bg-slate-900 border border-slate-700 text-slate-200 px-4 py-2.5 rounded-xl text-sm font-semibold focus:outline-none focus:border-indigo-500">
+                            <!-- 獎項選項 -->
+                        </select>
+                        <select id="drawCountSelect" class="bg-slate-900 border border-slate-700 text-slate-200 px-4 py-2.5 rounded-xl text-sm font-semibold focus:outline-none focus:border-indigo-500">
+                            <option value="1">抽 1 位</option>
+                            <option value="2">抽 2 位</option>
+                            <option value="3">抽 3 位</option>
+                            <option value="5">抽 5 位</option>
+                            <option value="10">抽 10 位</option>
+                        </select>
+                        <button onclick="startDrawProcess()" id="startDrawBtn" class="px-8 py-2.5 bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 text-white font-bold rounded-xl shadow-lg transition transform active:scale-95 flex items-center">
+                            <i class="fa-solid fa-play mr-2"></i> 開始抽獎
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 歷史中獎紀錄 & 參與名單預覽 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- 中獎歷史紀錄 -->
+                    <div class="bg-slate-800 rounded-2xl p-5 border border-slate-700 shadow-xl flex flex-col h-96">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="font-bold text-base flex items-center text-emerald-400">
+                                <i class="fa-solid fa-award mr-2"></i> 即時中獎紀錄
+                            </h3>
+                            <button onclick="clearHistory()" id="clearHistoryBtn" class="hidden text-xs text-rose-400 hover:underline">清除紀錄</button>
+                        </div>
+                        <div id="historyListContainer" class="flex-grow overflow-y-auto space-y-2 pr-1">
+                            <!-- 動態載入中獎紀錄 -->
+                        </div>
+                    </div>
+
+                    <!-- 參與抽獎名單 -->
+                    <div class="bg-slate-800 rounded-2xl p-5 border border-slate-700 shadow-xl flex flex-col h-96">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="font-bold text-base flex items-center text-sky-400">
+                                <i class="fa-solid fa-users-line mr-2"></i> 目前參與名單
+                            </h3>
+                            <span id="participantCountTag" class="text-xs bg-slate-700 px-2 py-0.5 rounded-full text-slate-300">0 人</span>
+                        </div>
+                        <div id="participantsListContainer" class="flex-grow overflow-y-auto space-y-1.5 pr-1 text-sm font-mono">
+                            <!-- 動態載入參與名單 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 分頁內容：2. 獎項管理 (後台) -->
+            <div id="section-prizes" class="hidden space-y-6">
+                <div class="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-xl">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-lg font-bold text-amber-400 flex items-center">
+                            <i class="fa-solid fa-trophy mr-2"></i> 獎項清單與自動抽獎設定
+                        </h2>
+                        <button onclick="openPrizeModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold transition shadow flex items-center">
+                            <i class="fa-solid fa-plus mr-2"></i> 新增獎項
+                        </button>
+                    </div>
+                    <div id="prizesManageContainer" class="space-y-3">
+                        <!-- 動態獎項管理清單 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 分頁內容：3. 名單管理 (後台) -->
+            <div id="section-participants" class="hidden space-y-6">
+                <div class="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-xl">
+                    <h2 class="text-lg font-bold text-sky-400 flex items-center mb-4">
+                        <i class="fa-solid fa-file-lines mr-2"></i> 抽獎名單批量匯入與設定
+                    </h2>
+                    <p class="text-xs text-slate-400 mb-4">您可以逐行輸入或從 Excel / 文字檔批量貼上參與名單（一行一位）。</p>
+                    <div class="space-y-4">
+                        <div>
+                            <textarea id="batchParticipantsInput" rows="8" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-slate-200 text-sm font-mono focus:outline-none focus:border-sky-500" placeholder="請在此貼上參與者姓名或代號，每行一位..."></textarea>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" id="allowRepeatCheckbox" class="w-4 h-4 rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-indigo-500">
+                                <span class="text-sm text-slate-300 font-medium">允許重複中獎（同一人可中多個獎項）</span>
+                            </label>
+                            <button onclick="saveParticipants()" class="px-6 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl text-sm shadow transition">
+                                <i class="fa-solid fa-floppy-disk mr-1"></i> 儲存名單與規則
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 分頁內容：4. 帳號權限管理 (最高管理員專用) -->
+            <div id="section-accounts" class="hidden space-y-6">
+                <div class="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-xl">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-lg font-bold text-purple-400 flex items-center">
+                            <i class="fa-solid fa-user-gear mr-2"></i> 管理員帳號與權限分級
+                        </h2>
+                        <button onclick="openAccountModal()" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-bold transition shadow flex items-center">
+                            <i class="fa-solid fa-user-plus mr-2"></i> 新增管理員
+                        </button>
+                    </div>
+                    <div id="accountsManageContainer" class="space-y-3">
+                        <!-- 動態帳號清單 -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- 頁尾 -->
+    <footer class="mt-auto py-6 text-center text-xs text-slate-500 border-t border-slate-800">
+        LINN 抽獎系統 &copy; 2026 | 支援 BroadcastChannel 跨分頁即時同步
+    </footer>
+
+    <!-- ================= 互動彈窗 (Modals) ================= -->
+
+    <!-- 登入彈窗 -->
+    <div id="authModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl relative">
+            <button onclick="toggleAuthModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            <div class="text-center mb-6">
+                <div class="inline-block p-3 bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 rounded-2xl mb-2">
+                    <i class="fa-solid fa-lock text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-bold">後台管理員登入</h3>
+                <p class="text-xs text-slate-400 mt-1">預設最高管理員帳號：LINN / 密碼：LINN0118</p>
+            </div>
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">管理員帳號</label>
+                    <input type="text" id="loginUsername" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500" placeholder="請輸入帳號">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">密碼</label>
+                    <input type="password" id="loginPassword" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500" placeholder="請輸入密碼">
+                </div>
+                <button type="submit" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition shadow-lg mt-2">
+                    登入系統
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 公告編輯彈窗 -->
+    <div id="announcementModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-3xl p-6 md:p-8 w-full max-w-lg shadow-2xl relative">
+            <button onclick="closeAnnouncementModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            <h3 class="text-lg font-bold mb-4 text-amber-400 flex items-center"><i class="fa-solid fa-bullhorn mr-2"></i> 發布或編輯公告</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">公告標題</label>
+                    <input type="text" id="annTitleInput" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-amber-500" placeholder="例如：中獎名單公佈與領獎須知">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">公告內容</label>
+                    <textarea id="annContentInput" rows="4" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-sm text-slate-200 focus:outline-none focus:border-amber-500" placeholder="請輸入公告詳細資訊..."></textarea>
+                </div>
+                <button onclick="saveAnnouncement()" class="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl transition shadow">
+                    發布公告 (即時同步)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 獎項編輯彈窗 (支援天數、小時、分鐘、秒數設定) -->
+    <div id="prizeModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-3xl p-6 md:p-8 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button onclick="closePrizeModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            <h3 id="prizeModalTitle" class="text-lg font-bold mb-4 text-indigo-400 flex items-center"><i class="fa-solid fa-trophy mr-2"></i> 新增/編輯獎項</h3>
+            <form onsubmit="savePrize(event)" class="space-y-4">
+                <input type="hidden" id="prizeEditIndex" value="-1">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">獎項名稱</label>
+                    <input type="text" id="prizeName" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500" placeholder="例如：iPhone 17 Pro Max">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">獎項數量 (份數)</label>
+                    <input type="number" id="prizeQuantity" min="1" value="1" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">抽獎觸發模式</label>
+                    <select id="prizeMode" onchange="togglePrizeModeSettings()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
+                        <option value="manual">手動抽獎（由管理員控制）</option>
+                        <option value="auto">限時倒數自動抽出</option>
+                    </select>
+                </div>
+
+                <!-- 倒數計時器設定 (天、小時、分鐘、秒數) -->
+                <div id="autoTimerSettingsBox" class="hidden p-4 bg-slate-900/60 border border-slate-700 rounded-xl space-y-3">
+                    <label class="block text-xs font-bold text-amber-400">設定倒數時間長度：</label>
+                    <div class="grid grid-cols-4 gap-2 text-center">
+                        <div>
+                            <input type="number" id="timerDays" min="0" value="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-center text-slate-200">
+                            <span class="text-[10px] text-slate-400">天</span>
+                        </div>
+                        <div>
+                            <input type="number" id="timerHours" min="0" max="23" value="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-center text-slate-200">
+                            <span class="text-[10px] text-slate-400">小時</span>
+                        </div>
+                        <div>
+                            <input type="number" id="timerMinutes" min="0" max="59" value="1" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-center text-slate-200">
+                            <span class="text-[10px] text-slate-400">分鐘</span>
+                        </div>
+                        <div>
+                            <input type="number" id="timerSeconds" min="0" max="59" value="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-center text-slate-200">
+                            <span class="text-[10px] text-slate-400">秒數</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition shadow mt-2">
+                    儲存獎項設定
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 帳號新增彈窗 (最高管理員專用) -->
+    <div id="accountModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl relative">
+            <button onclick="closeAccountModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            <h3 class="text-lg font-bold mb-4 text-purple-400 flex items-center"><i class="fa-solid fa-user-plus mr-2"></i> 新增管理員帳號</h3>
+            <form onsubmit="saveAccount(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">帳號名稱</label>
+                    <input type="text" id="newAccUser" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-purple-500" placeholder="例如：assistant01">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">設定密碼</label>
+                    <input type="text" id="newAccPass" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-purple-500" placeholder="請輸入密碼">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">權限角色</label>
+                    <select id="newAccRole" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-purple-500">
+                        <option value="sub">副手 / 協同管理員</option>
+                        <option value="admin">最高管理員 (LINN Admin)</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl transition shadow mt-2">
+                    確認新增
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= 系統 JavaScript 邏輯 ================= -->
+    <script>
+        // 初始化預設資料與 BroadcastChannel 跨視窗即時同步
+        const CHANNEL_NAME = 'linn_lucky_draw_channel';
+        const broadcastChannel = new BroadcastChannel(CHANNEL_NAME);
+
+        // 預設資料結構
+        let db = {
+            currentUser: null, // null 為訪客, 包含 username, role
+            accounts: [
+                { username: 'LINN', password: 'LINN0118', role: 'admin' }
+            ],
+            announcements: [
+                { id: 1, title: '歡迎參與 LINN 抽獎系統', content: '即時互動抽獎已正式啟動，請隨時關注最新獎項與公告！', time: '2026-03-31 12:00' }
+            ],
+            participants: [
+                '王小明', '李大華', '張三豐', '趙敏', '周芷若', 
+                '張無忌', '郭靖', '黃蓉', '楊過', '小龍女',
+                '段譽', '虛竹', '喬峰', '韋小寶', '令狐沖'
+            ],
+            allowRepeat: false,
+            prizes: [
+                { id: 1, name: '特獎：MacBook Pro M3', quantity: 1, mode: 'manual', durationSeconds: 0, status: 'active' },
+                { id: 2, name: '頭獎：PlayStation 5 主機', quantity: 1, mode: 'auto', durationSeconds: 60, status: 'active' },
+                { id: 3, name: '二獎：AirPods Pro 2', quantity: 3, mode: 'manual', durationSeconds: 0, status: 'active' }
+            ],
+            history: []
+        };
+
+        // 從 LocalStorage 載入資料
+        function loadDB() {
+            const saved = localStorage.getItem('linn_lucky_draw_db');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    db.accounts = parsed.accounts || db.accounts;
+                    db.announcements = parsed.announcements || db.announcements;
+                    db.participants = parsed.participants || db.participants;
+                    db.allowRepeat = parsed.allowRepeat !== undefined ? parsed.allowRepeat : db.allowRepeat;
+                    db.prizes = parsed.prizes || db.prizes;
+                    db.history = parsed.history || db.history;
+                } catch(e) { console.error('載入本機資料失敗', e); }
+            }
+        }
+
+        function saveDB() {
+            localStorage.setItem('linn_lucky_draw_db', JSON.stringify({
+                accounts: db.accounts,
+                announcements: db.announcements,
+                participants: db.participants,
+                allowRepeat: db.allowRepeat,
+                prizes: db.prizes,
+                history: db.history
+            }));
+            // 廣播給其他分頁
+            broadcastChannel.postMessage({ type: 'SYNC_UPDATE' });
+        }
+
+        // 監聽跨視窗同步
+        broadcastChannel.onmessage = function (event) {
+            if (event.data && event.data.type === 'SYNC_UPDATE') {
+                loadDB();
+                renderAll();
+            }
+        };
+
+        // 初始化執行
+        window.onload = function() {
+            loadDB();
+            renderAll();
+            checkAutoTimers();
+            setInterval(checkAutoTimers, 1000); // 每秒檢查定時自動抽獎
+        };
+
+        function renderAll() {
+            renderAnnouncements();
+            renderParticipants();
+            renderHistory();
+            renderStats();
+            renderPrizeSelectOptions();
+            renderPrizesManage();
+            renderAccountsManage();
+            updateUIMode();
+        }
+
+        // ================= 介面狀態切換 =================
+        function updateUIMode() {
+            const badge = document.getElementById('userStatusBadge');
+            const navBtn = document.getElementById('navToggleBtn');
+            const adminNav = document.getElementById('adminControlPanelNav');
+            const adminDrawControls = document.getElementById('adminDrawControls');
+            const adminAnnouncementControl = document.getElementById('adminAnnouncementControl');
+            const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+            const tabBtnAccounts = document.getElementById('tabBtn-accounts');
+
+            if (db.currentUser) {
+                badge.className = "px-3 py-1 bg-indigo-600/30 border border-indigo-500/50 text-indigo-300 rounded-full text-xs font-semibold flex items-center";
+                badge.innerHTML = `<i class="fa-solid fa-user-shield mr-1"></i> ${db.currentUser.username} (${db.currentUser.role === 'admin' ? '最高管理員' : '協同管理員'})`;
+                navBtn.classList.add('hidden');
+                adminNav.classList.remove('hidden');
+                adminDrawControls.classList.remove('hidden');
+                adminAnnouncementControl.classList.remove('hidden');
+                clearHistoryBtn.classList.remove('hidden');
+
+                if (db.currentUser.role === 'admin') {
+                    tabBtnAccounts.classList.remove('hidden');
+                } else {
+                    tabBtnAccounts.classList.add('hidden');
+                }
+            } else {
+                badge.className = "px-3 py-1 bg-slate-700 text-slate-300 rounded-full text-xs font-medium flex items-center";
+                badge.innerHTML = `<i class="fa-solid fa-eye mr-1"></i> 訪客模式`;
+                navBtn.classList.remove('hidden');
+                adminNav.classList.add('hidden');
+                adminDrawControls.classList.add('hidden');
+                adminAnnouncementControl.classList.add('hidden');
+                clearHistoryBtn.classList.add('hidden');
+                switchTab('draw'); // 非管理員強制返回抽獎主畫面
+            }
+
+            document.getElementById('allowRepeatCheckbox').checked = db.allowRepeat;
+            document.getElementById('batchParticipantsInput').value = db.participants.join('\n');
+        }
+
+        function switchTab(tabName) {
+            ['draw', 'prizes', 'participants', 'accounts'].forEach(t => {
+                const el = document.getElementById(`section-${t}`);
+                const btn = document.getElementById(`tabBtn-${t}`);
+                if (el) el.classList.add('hidden');
+                if (btn) {
+                    btn.className = "px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-sm font-bold transition";
+                }
+            });
+            const targetEl = document.getElementById(`section-${tabName}`);
+            const targetBtn = document.getElementById(`tabBtn-${tabName}`);
+            if (targetEl) targetEl.classList.remove('hidden');
+            if (targetBtn) {
+                targetBtn.className = "px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold transition shadow";
+            }
+        }
+
+        // ================= 登入與權限控制 =================
+        function toggleAuthModal() {
+            const modal = document.getElementById('authModal');
+            modal.classList.toggle('hidden');
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const u = document.getElementById('loginUsername').value.trim();
+            const p = document.getElementById('loginPassword').value.trim();
+
+            const found = db.accounts.find(acc => acc.username === u && acc.password === p);
+            if (found) {
+                db.currentUser = { username: found.username, role: found.role };
+                toggleAuthModal();
+                renderAll();
+                alert(`歡迎回來，${found.username}！`);
+            } else {
+                alert('帳號或密碼錯誤！');
+            }
+        }
+
+        function logout() {
+            db.currentUser = null;
+            renderAll();
+            alert('已安全登出後台。');
+        }
+
+        // ================= 公告功能 =================
+        function renderAnnouncements() {
+            const container = document.getElementById('announcementContainer');
+            if (db.announcements.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">目前尚無公告</p>`;
+                return;
+            }
+            container.innerHTML = db.announcements.map(ann => `
+                <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/60 relative group">
+                    <div class="flex justify-between items-start mb-1">
+                        <h4 class="text-xs font-bold text-amber-300">${ann.title}</h4>
+                        <span class="text-[10px] text-slate-500">${ann.time}</span>
+                    </div>
+                    <p class="text-xs text-slate-300 whitespace-pre-wrap">${ann.content}</p>
+                    ${db.currentUser ? `
+                        <button onclick="deleteAnnouncement(${ann.id})" class="absolute top-2 right-2 text-rose-400 opacity-0 group-hover:opacity-100 transition text-xs"><i class="fa-solid fa-trash"></i></button>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        function openAnnouncementModal() {
+            document.getElementById('announcementModal').classList.remove('hidden');
+        }
+        function closeAnnouncementModal() {
+            document.getElementById('announcementModal').classList.add('hidden');
+            document.getElementById('annTitleInput').value = '';
+            document.getElementById('annContentInput').value = '';
+        }
+        function saveAnnouncement() {
+            const title = document.getElementById('annTitleInput').value.trim();
+            const content = document.getElementById('annContentInput').value.trim();
+            if (!title || !content) { alert('請填寫完整標題與內容'); return; }
+
+            const now = new Date();
+            const timeStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+            db.announcements.unshift({ id: Date.now(), title, content, time: timeStr });
+            saveDB();
+            renderAnnouncements();
+            closeAnnouncementModal();
+        }
+        function deleteAnnouncement(id) {
+            if (confirm('確定要刪除這則公告嗎？')) {
+                db.announcements = db.announcements.filter(a => a.id !== id);
+                saveDB();
+                renderAnnouncements();
+            }
+        }
+
+        // ================= 參與名單與統計 =================
+        function renderParticipants() {
+            const container = document.getElementById('participantsListContainer');
+            document.getElementById('participantCountTag').innerText = `${db.participants.length} 人`;
+            document.getElementById('statParticipants').innerText = db.participants.length;
+
+            if (db.participants.length === 0) {
+                container.innerHTML = `<div class="text-center text-slate-500 py-6 text-xs">目前無參與名單，請至後台匯入</div>`;
+                return;
+            }
+            container.innerHTML = db.participants.map((name, idx) => `
+                <div class="px-3 py-1.5 bg-slate-900/40 rounded-lg flex justify-between items-center border border-slate-800">
+                    <span class="text-slate-300 text-xs">#${idx+1} ${name}</span>
+                </div>
+            `).join('');
+        }
+
+        function saveParticipants() {
+            const rawText = document.getElementById('batchParticipantsInput').value;
+            const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            db.participants = [...new Set(lines)]; // 去除重複空白
+            db.allowRepeat = document.getElementById('allowRepeatCheckbox').checked;
+            saveDB();
+            renderAll();
+            alert(`已成功更新參與名單，共 ${db.participants.length} 位！`);
+        }
+
+        // ================= 獎項與倒數計時管理 =================
+        function renderStats() {
+            const remainingPrizesCount = db.prizes.reduce((sum, p) => sum + p.quantity, 0);
+            document.getElementById('statPrizes').innerText = remainingPrizesCount;
+        }
+
+        function renderPrizeSelectOptions() {
+            const select = document.getElementById('drawPrizeSelect');
+            const activePrizes = db.prizes.filter(p => p.quantity > 0);
+            if (activePrizes.length === 0) {
+                select.innerHTML = `<option value="">所有獎項已抽完</option>`;
+                return;
+            }
+            select.innerHTML = activePrizes.map(p => `
+                <option value="${p.id}">${p.name} (剩餘: ${p.quantity}份)</option>
+            `).join('');
+        }
+
+        function renderPrizesManage() {
+            const container = document.getElementById('prizesManageContainer');
+            if (db.prizes.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">目前尚無設定任何獎項</p>`;
+                return;
+            }
+            container.innerHTML = db.prizes.map((p, idx) => `
+                <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-700/60 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                    <div>
+                        <h4 class="font-bold text-sm text-slate-200">${p.name}</h4>
+                        <div class="flex items-center space-x-3 mt-1 text-xs text-slate-400">
+                            <span>數量：<strong class="text-amber-400">${p.quantity}</strong> 份</span>
+                            <span>模式：<strong class="text-indigo-400">${p.mode === 'auto' ? `限時自動抽出 (${p.durationSeconds}秒)` : '手動抽獎'}</strong></span>
+                        </div>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick="editPrize(${idx})" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded-lg text-xs font-semibold transition">編輯</button>
+                        <button onclick="deletePrize(${idx})" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-rose-400 rounded-lg text-xs font-semibold transition">刪除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openPrizeModal(editIdx = -1) {
+            document.getElementById('prizeModal').classList.remove('hidden');
+            if (editIdx >= 0) {
+                const p = db.prizes[editIdx];
+                document.getElementById('prizeModalTitle').innerText = '編輯獎項';
+                document.getElementById('prizeEditIndex').value = editIdx;
+                document.getElementById('prizeName').value = p.name;
+                document.getElementById('prizeQuantity').value = p.quantity;
+                document.getElementById('prizeMode').value = p.mode;
+                
+                // 換算成天、小時、分鐘、秒
+                let totalSec = p.durationSeconds || 0;
+                let days = Math.floor(totalSec / 86400);
+                totalSec %= 86400;
+                let hours = Math.floor(totalSec / 3600);
+                totalSec %= 3600;
+                let minutes = Math.floor(totalSec / 60);
+                let seconds = totalSec % 60;
+
+                document.getElementById('timerDays').value = days;
+                document.getElementById('timerHours').value = hours;
+                document.getElementById('timerMinutes').value = minutes;
+                document.getElementById('timerSeconds').value = seconds;
+            } else {
+                document.getElementById('prizeModalTitle').innerText = '新增獎項';
+                document.getElementById('prizeEditIndex').value = -1;
+                document.getElementById('prizeName').value = '';
+                document.getElementById('prizeQuantity').value = 1;
+                document.getElementById('prizeMode').value = 'manual';
+                document.getElementById('timerDays').value = 0;
+                document.getElementById('timerHours').value = 0;
+                document.getElementById('timerMinutes').value = 1;
+                document.getElementById('timerSeconds').value = 0;
+            }
+            togglePrizeModeSettings();
+        }
+
+        function closePrizeModal() {
+            document.getElementById('prizeModal').classList.add('hidden');
+        }
+
+        function togglePrizeModeSettings() {
+            const mode = document.getElementById('prizeMode').value;
+            const box = document.getElementById('autoTimerSettingsBox');
+            if (mode === 'auto') box.classList.remove('hidden');
+            else box.classList.add('hidden');
+        }
+
+        function savePrize(e) {
+            e.preventDefault();
+            const editIdx = parseInt(document.getElementById('prizeEditIndex').value);
+            const name = document.getElementById('prizeName').value.trim();
+            const quantity = parseInt(document.getElementById('prizeQuantity').value);
+            const mode = document.getElementById('prizeMode').value;
+
+            let durationSeconds = 0;
+            if (mode === 'auto') {
+                const days = parseInt(document.getElementById('timerDays').value) || 0;
+                const hours = parseInt(document.getElementById('timerHours').value) || 0;
+                const minutes = parseInt(document.getElementById('timerMinutes').value) || 0;
+                const seconds = parseInt(document.getElementById('timerSeconds').value) || 0;
+                durationSeconds = (days * 86400) + (hours * 3600) + (minutes * 60) + seconds;
+                if (durationSeconds <= 0) {
+                    alert('自動抽獎時間必須大於 0 秒！');
+                    return;
+                }
+            }
+
+            const prizeData = {
+                id: editIdx >= 0 ? db.prizes[editIdx].id : Date.now(),
+                name, quantity, mode, durationSeconds,
+                createdAt: editIdx >= 0 ? db.prizes[editIdx].createdAt : Date.now()
+            };
+
+            if (editIdx >= 0) {
+                db.prizes[editIdx] = prizeData;
+            } else {
+                db.prizes.push(prizeData);
+            }
+
+            saveDB();
+            renderAll();
+            closePrizeModal();
+        }
+
+        function deletePrize(idx) {
+            if (confirm('確定要刪除這個獎項嗎？')) {
+                db.prizes.splice(idx, 1);
+                saveDB();
+                renderAll();
+            }
+        }
+
+        // ================= 自動計時抽獎邏輯 =================
+        function checkAutoTimers() {
+            // 尋找第一個設定為 auto 且有設定倒數的獎項
+            const autoPrize = db.prizes.find(p => p.mode === 'auto' && p.quantity > 0);
+            const timerContainer = document.getElementById('timerDisplayContainer');
+            const timerText = document.getElementById('countdownTimerText');
+
+            if (!autoPrize) {
+                timerContainer.classList.add('hidden');
+                return;
+            }
+
+            timerContainer.classList.remove('hidden');
+            if (!autoPrize.targetTimestamp) {
+                autoPrize.targetTimestamp = Date.now() + (autoPrize.durationSeconds * 1000);
+                saveDB();
+            }
+
+            const timeLeft = Math.floor((autoPrize.targetTimestamp - Date.now()) / 1000);
+            if (timeLeft <= 0) {
+                // 時間到自動觸發抽獎
+                if (db.currentUser) { // 若管理員在線上則自動開獎
+                    executeAutoDraw(autoPrize);
+                } else {
+                    timerText.innerText = "即將開獎...";
+                }
+            } else {
+                let d = Math.floor(timeLeft / 86400);
+                let h = Math.floor((timeLeft % 86400) / 3600);
+                let m = Math.floor((timeLeft % 3600) / 60);
+                let s = timeLeft % 60;
+                timerText.innerText = `${d > 0 ? d + '天 ' : ''}${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            }
+        }
+
+        function executeAutoDraw(prize) {
+            if (db.participants.length === 0) return;
+            // 自動隨機抽取 1 位
+            let eligible = [...db.participants];
+            if (!db.allowRepeat) {
+                const wonNames = db.history.map(h => h.winner);
+                eligible = eligible.filter(name => !wonNames.includes(name));
+            }
+            if (eligible.length === 0) return;
+
+            const winner = eligible[Math.floor(Math.random() * eligible.length)];
+            prize.quantity -= 1;
+            delete prize.targetTimestamp; // 重置計時
+
+            const now = new Date();
+            const timeStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+
+            db.history.unshift({
+                id: Date.now(),
+                prizeName: prize.name,
+                winner: winner,
+                time: timeStr
+            });
+
+            saveDB();
+            renderAll();
+        }
+
+        // ================= 動態滾動抽獎動畫與執行 =================
+        function startDrawProcess() {
+            if (!db.currentUser) { alert('請先登入管理員後台才可進行抽獎！'); return; }
+            const prizeId = parseInt(document.getElementById('drawPrizeSelect').value);
+            const count = parseInt(document.getElementById('drawCountSelect').value);
+
+            const prize = db.prizes.find(p => p.id === prizeId);
+            if (!prize) { alert('請選擇有效獎項！'); return; }
+            if (prize.quantity <= 0) { alert('此獎項已抽完！'); return; }
+
+            let eligible = [...db.participants];
+            if (!db.allowRepeat) {
+                const wonNames = db.history.map(h => h.winner);
+                eligible = eligible.filter(name => !wonNames.includes(name));
+            }
+
+            if (eligible.length === 0) {
+                alert('沒有符合資格的參與者（可能名單已全數中獎且未允許重複中獎）！');
+                return;
+            }
+
+            const actualDrawCount = Math.min(count, prize.quantity, eligible.length);
+            const slotText = document.getElementById('slotMachineText');
+            const startBtn = document.getElementById('startDrawBtn');
+            startBtn.disabled = true;
+
+            // 滾動抽獎特效模擬
+            let counter = 0;
+            const rollInterval = setInterval(() => {
+                const randomName = db.participants[Math.floor(Math.random() * db.participants.length)];
+                slotText.innerText = randomName;
+                slotText.className = "text-3xl md:text-5xl font-black tracking-wider text-amber-400 scale-105 transition-transform";
+                counter++;
+                
+                if (counter > 25) { // 動畫結束
+                    clearInterval(rollInterval);
+                    slotText.className = "text-3xl md:text-5xl font-black tracking-wider text-emerald-400 animate-bounce";
+                    
+                    // 正式選出得獎者
+                    let winners = [];
+                    for (let i = 0; i < actualDrawCount; i++) {
+                        if (eligible.length === 0) break;
+                        const idx = Math.floor(Math.random() * eligible.length);
+                        winners.push(eligible.splice(idx, 1)[0]);
+                    }
+
+                    slotText.innerText = `🎉 恭喜：${winners.join(', ')} 🎉`;
+                    prize.quantity -= actualDrawCount;
+
+                    const now = new Date();
+                    const timeStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+
+                    winners.forEach(w => {
+                        db.history.unshift({
+                            id: Date.now() + Math.random(),
+                            prizeName: prize.name,
+                            winner: w,
+                            time: timeStr
+                        });
+                    });
+
+                    saveDB();
+                    renderAll();
+                    startBtn.disabled = false;
+                }
+            }, 80);
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('historyListContainer');
+            if (db.history.length === 0) {
+                container.innerHTML = `<div class="text-center text-slate-500 py-6 text-xs">尚無中獎紀錄</div>`;
+                return;
+            }
+            container.innerHTML = db.history.map(h => `
+                <div class="p-3 bg-slate-900/60 rounded-xl border border-slate-700/60 flex justify-between items-center">
+                    <div>
+                        <span class="text-xs font-bold text-amber-300 block">${h.prizeName}</span>
+                        <span class="text-sm font-extrabold text-emerald-400"><i class="fa-solid fa-crown mr-1"></i>${h.winner}</span>
+                    </div>
+                    <span class="text-[10px] text-slate-500">${h.time}</span>
+                </div>
+            `).join('');
+        }
+
+        function clearHistory() {
+            if (confirm('確定要清除所有中獎歷史紀錄嗎？')) {
+                db.history = [];
+                saveDB();
+                renderAll();
+            }
+        }
+
+        // ================= 帳號權限管理 (最高管理員) =================
+        function renderAccountsManage() {
+            const container = document.getElementById('accountsManageContainer');
+            container.innerHTML = db.accounts.map((acc, idx) => `
+                <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-700/60 flex justify-between items-center">
+                    <div>
+                        <h4 class="font-bold text-sm text-purple-300">${acc.username}</h4>
+                        <span class="text-xs text-slate-400">角色：${acc.role === 'admin' ? '最高管理員 (LINN Admin)' : '副手/協同管理員'}</span>
+                    </div>
+                    ${acc.username !== 'LINN' ? `
+                        <button onclick="deleteAccount(${idx})" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-rose-400 rounded-lg text-xs font-semibold transition">刪除</button>
+                    ` : '<span class="text-xs text-slate-500 italic">系統預設主帳號</span>'}
+                </div>
+            `).join('');
+        }
+
+        function openAccountModal() {
+            document.getElementById('accountModal').classList.remove('hidden');
+        }
+        function closeAccountModal() {
+            document.getElementById('accountModal').classList.add('hidden');
+            document.getElementById('newAccUser').value = '';
+            document.getElementById('newAccPass').value = '';
+        }
+
+        function saveAccount(e) {
+            e.preventDefault();
+            const username = document.getElementById('newAccUser').value.trim();
+            const password = document.getElementById('newAccPass').value.trim();
+            const role = document.getElementById('newAccRole').value;
+
+            if (db.accounts.some(a => a.username === username)) {
+                alert('此帳號名稱已存在！');
+                return;
+            }
+
+            db.accounts.push({ username, password, role });
+            saveDB();
+            renderAll();
+            closeAccountModal();
+            alert('管理員帳號新增成功！');
+        }
+
+        function deleteAccount(idx) {
+            if (confirm('確定要刪除此管理員帳號嗎？')) {
+                db.accounts.splice(idx, 1);
+                saveDB();
+                renderAll();
+            }
+        }
+    </script>
+</body>
+</html>
